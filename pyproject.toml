@@ -1,7 +1,15 @@
 [project]
 name = "clinical-data-extractor"
 version = "0.1.0"
-description = "Add your description here"
+description = "Extracts clinical data from PDFs using LlamaCloud."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "llama-cloud>=2.9.1",
+]
+
+[tool.pyright]
+include = ["."]
+venvPath = "."
+venv = ".venv"
+extraPaths = ["."]
