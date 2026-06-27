@@ -1,0 +1,36 @@
+import logging
+from pathlib import Path
+from src.utils import get_llama_client
+
+logger = logging.getLogger(__name__)
+
+
+async def parse_doc(path: str | Path, save_to: str | Path) -> str | None:
+    """
+    Parses a document using LlamaCloud's agentic parser.
+
+    Args:
+        path: Local path to the document (PDF, Word, etc.).
+        save_to: Path to save the extracted markdown content to.
+
+    Returns:
+        The extracted full markdown content.
+    """
+    client = get_llama_client()
+
+    file_obj = client.files.create(file=str(path), purpose="parse")
+
+    result = client.parsing.parse(
+        file_id=file_obj.id,
+        tier="agentic",
+        version="latest",
+        expand=["markdown_full"],
+    )
+
+    save_to_path = Path(save_to)
+    save_to_path.parent.mkdir(parents=True, exist_ok=True)
+    save_to_path.write_text(result.markdown_full or "", encoding="utf-8")
+
+    logger.info(f"Wrote {len(result.markdown_full or '')} chars of markdown to {save_to}")
+
+    return result.markdown_full

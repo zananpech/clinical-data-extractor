@@ -5,7 +5,10 @@ description = "Extracts clinical data from PDFs using LlamaCloud."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "instructor>=1.15.3",
     "llama-cloud>=2.9.1",
+    "google-genai>=0.1.1",
+    "python-dotenv>=1.0.1",
 ]
 
 [tool.pyright]
