@@ -20,17 +20,22 @@ async def parse_doc(path: str | Path, save_to: str | Path) -> str | None:
 
     file_obj = client.files.create(file=str(path), purpose="parse")
 
+    file_name = Path(path).name
+
     result = client.parsing.parse(
         file_id=file_obj.id,
         tier="agentic",
         version="latest",
         expand=["markdown_full"],
+        processing_options={ "cost_optimizer": { "enable": True } }
     )
+
+    markdown_content = f"# File name: {file_name}\n\n{result.markdown_full or ''}"
 
     save_to_path = Path(save_to)
     save_to_path.parent.mkdir(parents=True, exist_ok=True)
-    save_to_path.write_text(result.markdown_full or "", encoding="utf-8")
+    save_to_path.write_text(markdown_content, encoding="utf-8")
 
-    logger.info(f"Wrote {len(result.markdown_full or '')} chars of markdown to {save_to}")
+    logger.info(f"Wrote {len(markdown_content)} chars of markdown to {save_to}")
 
-    return result.markdown_full
+    return markdown_content
