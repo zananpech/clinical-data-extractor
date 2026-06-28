@@ -6,6 +6,7 @@ dist/
 wheels/
 *.egg-info
 data/parsed
+data/output
 
 # Virtual environments
 .venv
