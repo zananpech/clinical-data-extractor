@@ -103,19 +103,23 @@ If you prefer to run the extractor without installing Python or packages locally
 
 **1. Build the Docker image:**
 ```bash
-docker build -t clinical-extractor .
+docker build -t clinical-data-extractor .
 ```
 
 **2. Run the pipeline:**
 Pass your API keys via environment variables and mount the local `data` directory to access raw files and view results:
 
-* **On Linux/macOS/Git Bash:**
+* **On Linux/macOS:**
   ```bash
-  docker run --env-file .env.local -v $(pwd)/data:/app/data clinical-extractor data/raw/
+  docker run --env-file .env.local -v $(pwd)/data:/app/data clinical-data-extractor data/raw/
+  ```
+* **On Windows (Git Bash)** — prefix with `MSYS_NO_PATHCONV=1` to prevent Git Bash from converting the container path:
+  ```bash
+  MSYS_NO_PATHCONV=1 docker run --env-file .env.local -v $(pwd)/data:/app/data clinical-data-extractor data/raw/
   ```
 * **On Windows (PowerShell):**
   ```powershell
-  docker run --env-file .env.local -v ${PWD}/data:/app/data clinical-extractor data/raw/
+  docker run --env-file .env.local -v "${PWD}/data:/app/data" clinical-data-extractor data/raw/
   ```
 
 Results are written to:
