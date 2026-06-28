@@ -1,5 +1,7 @@
+import json
 import logging
 import asyncio
+import argparse
 from pathlib import Path
 from src.extractors.llama_cloud_extractor import extract_clinical_study
 from src.parsers.llama_cloud_parser import parse_doc
@@ -10,37 +12,75 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+PARSED_DIR = Path("data/parsed")
+AUDIT_DIR = Path("data/output/audit")
+DB_DIR = Path("data/output/db")
 
-async def main():
-    raw_data_dir = Path("data/raw")
-    parsed_data_dir = Path("data/parsed")
-    sample_pdf = raw_data_dir / "tan_2025_cIMS - Poster.pdf"
 
-    if not sample_pdf.exists():
-        logger.error(f"Sample PDF not found at {sample_pdf}")
+async def process_pdf(pdf_path: Path) -> None:
+    """Run the full parse → extract pipeline for a single PDF."""
+    stem = pdf_path.stem
+    md_path = PARSED_DIR / f"{stem}.md"
+    audit_path = AUDIT_DIR / f"{stem}.json"
+    db_path = DB_DIR / f"{stem}.json"
+
+    PARSED_DIR.mkdir(parents=True, exist_ok=True)
+    AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+
+    logger.info(f"[{stem}] Parsing PDF...")
+    markdown_content = await parse_doc(pdf_path, save_to=md_path)
+
+    if not markdown_content:
+        logger.warning(f"[{stem}] Parsing returned empty content, skipping extraction.")
         return
 
-    logger.info(f"Parsing {sample_pdf} with LlamaCloud...")
-    try:
-        markdown_content = await parse_doc(
-            sample_pdf, save_to=parsed_data_dir / "tan_2025_cIMS - Poster.md"
-        )
-        logger.info("Parsing successful! Preview of extracted Markdown:")
-        logger.info("-" * 50)
-        if markdown_content:
-            logger.info(markdown_content[:50])
-        logger.info("-" * 50)
+    logger.info(f"[{stem}] Extracting clinical study data...")
+    clinical_study = extract_clinical_study(md_path)
 
-        logger.info("Extracting clinical study information...")
-        clinical_study = extract_clinical_study(parsed_data_dir / "tan_2025_cIMS - Poster.md")
-        logger.info("Extraction successful! Clinical study information:")
-        logger.info(clinical_study.model_dump_json(indent=2))
-        logger.info(f"substring quotes: {clinical_study.substring_quotes}")
+    audit_path.write_text(clinical_study.model_dump_json(indent=2), encoding="utf-8")
+    logger.info(f"[{stem}] Saved audit data to {audit_path}")
 
-    except Exception as e:
-        logger.error(f"An error occurred while parsing: {e}", exc_info=True)
+    db_path.write_text(json.dumps(clinical_study.to_db_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+    logger.info(f"[{stem}] Saved DB data to {db_path}")
+
+
+async def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Clinical data extractor — parse PDFs and extract structured study data."
+    )
+    parser.add_argument(
+        "input",
+        type=Path,
+        help="Path to a PDF file or a folder containing PDFs.",
+    )
+    args = parser.parse_args()
+    input_path: Path = args.input
+
+    if not input_path.exists():
+        logger.error(f"Input path does not exist: {input_path}")
+        return
+
+    if input_path.is_file():
+        if input_path.suffix.lower() != ".pdf":
+            logger.error(f"Input file must be a PDF, got: {input_path.suffix}")
+            return
+        pdfs = [input_path]
+    elif input_path.is_dir():
+        pdfs = sorted(input_path.glob("*.pdf"))
+        if not pdfs:
+            logger.warning(f"No PDF files found in folder: {input_path}")
+            return
+        logger.info(f"Found {len(pdfs)} PDF(s) in {input_path}")
+    else:
+        logger.error(f"Input path is neither a file nor a directory: {input_path}")
+        return
+
+    await asyncio.gather(*[process_pdf(pdf) for pdf in pdfs])
+    logger.info("Pipeline complete.")
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 

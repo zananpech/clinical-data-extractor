@@ -1,5 +1,5 @@
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from instructor import CitationMixin
 
 class CitedField(BaseModel):
@@ -106,6 +106,21 @@ class AgeEntry(BaseModel):
         )
     )
 
+    def to_db_dict(self) -> dict:
+        """Returns a flat dict of extracted values only, suitable for DB storage."""
+        return {
+            "treatment": self.treatment.value,
+            "age_n": self.age_n.value,
+            "age_esttype": self.age_esttype.value,
+            "age_estimate": self.age_estimate.value,
+            "age_disptype": self.age_disptype.value,
+            "age_disp": self.age_disp.value,
+            "age_lb": self.age_lb.value,
+            "age_ub": self.age_ub.value,
+            "age_docname": self.age_docname.value,
+            "age_comment": self.age_comment.value,
+        }
+
 
 class ClinicalStudy(CitationMixin, BaseModel):
     """
@@ -172,3 +187,22 @@ class ClinicalStudy(CitationMixin, BaseModel):
             "Participant age details, with one object per treatment arm."
         )
     )
+
+    @field_validator("age", mode="before")
+    @classmethod
+    def coerce_age_none_to_list(cls, v):
+        """LlamaCloud may return null for age when no data is found; coerce to empty list."""
+        return v if v is not None else []
+
+    def to_db_dict(self) -> dict:
+        """Returns a flat dict of extracted values only, suitable for DB storage."""
+        return {
+            "document": self.document.value,
+            "publication_year": self.publication_year.value,
+            "reported_study_design": self.reported_study_design.value,
+            "study_setting": self.study_setting.value,
+            "start_date": self.start_date.value,
+            "end_date": self.end_date.value,
+            "age": [entry.to_db_dict() for entry in self.age],
+        }
+
